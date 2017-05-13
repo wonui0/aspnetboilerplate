@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using System.Linq;
 using Abp.AspNetCore.EmbeddedResources;
 using Abp.AspNetCore.Localization;
@@ -6,6 +7,7 @@ using Abp.AspNetCore.Mvc.Views;
 using Abp.Dependency;
 using Abp.Localization;
 using Castle.LoggingFacility.MsLogging;
+using JetBrains.Annotations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,18 +15,34 @@ using Microsoft.Extensions.Logging;
 
 namespace Abp.AspNetCore
 {
-    public static class AbpApplicationBuilderExtensions
+	public static class AbpApplicationBuilderExtensions
     {
         public static void UseAbp(this IApplicationBuilder app)
         {
-            AddCastleLoggerFactory(app);
-
-            InitializeAbp(app);
-
-            ConfigureRequestLocalization(app);
+            app.UseAbp(null);
         }
 
-        public static void UseEmbeddedFiles(this IApplicationBuilder app)
+	    public static void UseAbp([NotNull] this IApplicationBuilder app, Action<AbpApplicationBuilderOptions> optionsAction)
+	    {
+		    Check.NotNull(app, nameof(app));
+
+	        var options = new AbpApplicationBuilderOptions();
+            optionsAction?.Invoke(options);
+
+            if (options.UseCastleLoggerFactory)
+		    {
+			    app.UseCastleLoggerFactory();
+			}
+
+			InitializeAbp(app);
+
+		    if (options.UseAbpRequestLocalization)
+		    {
+			    app.UseAbpRequestLocalization();
+		    }
+	    }
+
+		public static void UseEmbeddedFiles(this IApplicationBuilder app)
         {
             //TODO: Can improve it or create a custom middleware?
             app.UseStaticFiles(
@@ -43,7 +61,7 @@ namespace Abp.AspNetCore
             abpBootstrapper.Initialize();
         }
 
-        private static void AddCastleLoggerFactory(IApplicationBuilder app)
+        public static void UseCastleLoggerFactory(this IApplicationBuilder app)
         {
             var castleLoggerFactory = app.ApplicationServices.GetService<Castle.Core.Logging.ILoggerFactory>();
             if (castleLoggerFactory == null)
@@ -56,7 +74,7 @@ namespace Abp.AspNetCore
                 .AddCastleLogger(castleLoggerFactory);
         }
 
-        private static void ConfigureRequestLocalization(IApplicationBuilder app)
+        public static void UseAbpRequestLocalization(this IApplicationBuilder app)
         {
             var iocResolver = app.ApplicationServices.GetRequiredService<IIocResolver>();
             using (var languageManager = iocResolver.ResolveAsDisposable<ILanguageManager>())
